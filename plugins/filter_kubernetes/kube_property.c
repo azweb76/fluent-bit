@@ -102,6 +102,32 @@ static int prop_set_exclude(struct flb_kube *ctx, struct flb_kube_meta *meta,
     return 0;
 }
 
+static int prop_set_include(struct flb_kube *ctx, struct flb_kube_meta *meta,
+                            char *val_buf, size_t val_len,
+                            struct flb_kube_props *props)
+{
+    char *tmp;
+
+    /* Exclude property must be allowed by k8s-logging.exclude */
+    if (ctx->k8s_logging_include == FLB_FALSE) {
+        prop_not_allowed("fluentbit.io/include", meta);
+        return -1;
+    }
+
+    /* Get the bool value */
+    tmp = flb_strndup(val_buf, val_len);
+    if (!tmp) {
+        flb_errno();
+        return -1;
+    }
+
+    /* Save the exclude property in the context */
+    props->include = flb_utils_bool(tmp);
+    flb_free(tmp);
+
+    return 0;
+}
+
 int flb_kube_prop_set(struct flb_kube *ctx, struct flb_kube_meta *meta,
                       char *prop, int prop_len,
                       char *val_buf, size_t val_len,
@@ -112,6 +138,9 @@ int flb_kube_prop_set(struct flb_kube *ctx, struct flb_kube_meta *meta,
     }
     else if (prop_cmp("exclude", prop_len, prop)) {
         prop_set_exclude(ctx, meta, val_buf, val_len, props);
+    }
+    else if (prop_cmp("include", prop_len, prop)) {
+        prop_set_include(ctx, meta, val_buf, val_len, props);
     }
 
     return 0;
@@ -144,7 +173,7 @@ int flb_kube_prop_pack(struct flb_kube_props *props,
     }
 
     /* Index 1: FLB_KUBE_PROP_EXCLUDE */
-    if (props->exclude == FLB_TRUE) {
+    if (props->exclude == FLB_TRUE || props->include != FLB_TRUE) {
         msgpack_pack_true(&pck);
     }
     else {
@@ -192,6 +221,15 @@ int flb_kube_prop_unpack(struct flb_kube_props *props, char *buf, size_t size)
     }
     else {
         props->exclude = FLB_FALSE;
+    }
+
+    /* Index 1: Include */
+    o = root.via.array.ptr[FLB_KUBE_PROPS_INCLUDE];
+    if (o.via.boolean == FLB_FALSE) {
+        props->include = FLB_FALSE;
+    }
+    else {
+        props->include = FLB_TRUE;
     }
 
     msgpack_unpacked_destroy(&result);

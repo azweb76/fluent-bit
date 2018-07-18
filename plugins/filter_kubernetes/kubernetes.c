@@ -426,7 +426,7 @@ static int cb_kube_filter(void *data, size_t bytes,
             parser = flb_parser_get(props.parser, config);
         }
 
-        if (props.exclude == FLB_TRUE) {
+        if (props.exclude == FLB_TRUE || props.include != FLB_TRUE) {
             *out_buf   = NULL;
             *out_bytes = 0;
             flb_kube_prop_destroy(&props);
@@ -473,7 +473,7 @@ static int cb_kube_filter(void *data, size_t bytes,
                 parser = flb_parser_get(props.parser, config);
             }
 
-            if (props.exclude == FLB_TRUE) {
+            if (props.exclude == FLB_TRUE || props.include != FLB_TRUE) {
                 /* Skip this record */
                 continue;
             }
